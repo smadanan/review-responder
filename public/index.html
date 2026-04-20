@@ -109,16 +109,27 @@
       color: #94a3b8; padding: 6px 14px; border-radius: 8px;
       font-size: 0.82rem; cursor: pointer; font-family: sans-serif;
     }
+    .logout-btn {
+      position: fixed; top: 1rem; right: 1rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #64748b; padding: 6px 14px; border-radius: 8px;
+      font-size: 0.78rem; cursor: pointer; font-family: sans-serif;
+    }
     .footer { color: #334155; font-size: 0.75rem; margin-top: 2rem; font-family: sans-serif; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
+
+  <button class="logout-btn" onclick="logout()">Logout</button>
+
   <div class="header">
     <div class="badge">✦ AI-Powered</div>
     <h1>Review Responder</h1>
     <p class="subtitle">Turn customer reviews into polished replies — in seconds.</p>
   </div>
+
   <div class="card">
     <div class="row-2">
       <div>
@@ -155,7 +166,7 @@
     </div>
     <div class="field">
       <label>Response Tone</label>
-      <div class="tones" id="tonesContainer">
+      <div class="tones">
         <button class="tone-btn active" data-tone="Professional">Professional</button>
         <button class="tone-btn" data-tone="Friendly & Warm">Friendly & Warm</button>
         <button class="tone-btn" data-tone="Apologetic">Apologetic</button>
@@ -167,6 +178,7 @@
       ✦ Generate Response
     </button>
   </div>
+
   <div class="result-card" id="resultCard">
     <div class="result-header">
       <span class="result-label">✦ Your Response</span>
@@ -177,11 +189,20 @@
       <button class="regen-btn" onclick="generate()">↻ Regenerate</button>
     </div>
   </div>
-  <p class="footer">Powered by Claude AI · Built for Indian SMBs</p>
+
+  <p class="footer">Powered by Claude AI</p>
+
   <script>
+    // Check login
+    const savedPassword = sessionStorage.getItem("rrPassword");
+    if (!savedPassword) {
+      window.location.href = "/";
+    }
+
     let selectedStars = 0;
     let selectedTone = "Professional";
     const starLabels = ["", "Very Bad", "Poor", "Average", "Good", "Excellent"];
+
     document.querySelectorAll(".star-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         selectedStars = parseInt(btn.dataset.val);
@@ -192,6 +213,7 @@
         document.getElementById("starLabel").textContent = starLabels[selectedStars];
       });
     });
+
     document.querySelectorAll(".tone-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         document.querySelectorAll(".tone-btn").forEach(b => b.classList.remove("active"));
@@ -199,24 +221,43 @@
         selectedTone = btn.dataset.tone;
       });
     });
+
     async function generate() {
       const businessName = document.getElementById("businessName").value.trim();
       const businessType = document.getElementById("businessType").value;
       const review = document.getElementById("reviewText").value.trim();
       const errorBox = document.getElementById("errorBox");
       const btn = document.getElementById("generateBtn");
+
       errorBox.style.display = "none";
       if (!businessName) { showError("Please enter your business name."); return; }
       if (!review) { showError("Please paste a customer review."); return; }
+
       btn.disabled = true;
       btn.textContent = "⟳ Crafting your response...";
+
       try {
         const res = await fetch("/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ businessName, businessType, review, tone: selectedTone, stars: selectedStars })
+          body: JSON.stringify({
+            businessName,
+            businessType,
+            review,
+            tone: selectedTone,
+            stars: selectedStars,
+            password: savedPassword
+          })
         });
+
         const data = await res.json();
+
+        if (res.status === 401) {
+          sessionStorage.removeItem("rrPassword");
+          window.location.href = "/";
+          return;
+        }
+
         if (!res.ok) {
           showError(data.error || "Something went wrong.");
         } else {
@@ -227,14 +268,17 @@
       } catch (e) {
         showError("Network error: " + e.message);
       }
+
       btn.disabled = false;
       btn.textContent = "✦ Generate Response";
     }
+
     function showError(msg) {
       const errorBox = document.getElementById("errorBox");
       errorBox.textContent = msg;
       errorBox.style.display = "block";
     }
+
     function copyText() {
       const text = document.getElementById("responseText").textContent;
       navigator.clipboard.writeText(text).then(() => {
@@ -244,6 +288,12 @@
         setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 2000);
       });
     }
+
+    function logout() {
+      sessionStorage.removeItem("rrPassword");
+      window.location.href = "/";
+    }
   </script>
+
 </body>
 </html>
