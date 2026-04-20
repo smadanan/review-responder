@@ -160,6 +160,28 @@ app.post("/admin/add", async (req, res) => {
   }
 });
 
+// Reset client password
+app.post("/admin/reset", async (req, res) => {
+  const { adminPassword, id, newPassword } = req.body;
+  if (adminPassword !== ADMIN_PASSWORD) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  if (!newPassword || newPassword.trim().length < 4) {
+    return res.status(400).json({ error: "Password must be at least 4 characters." });
+  }
+  try {
+    const { clients, sha } = await getPasswords();
+    const client = clients.find(c => c.id === id);
+    if (!client) return res.status(404).json({ error: "Client not found." });
+    client.password = newPassword.trim();
+    client.currentPassword = newPassword.trim();
+    await savePasswords(clients, sha);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: "Could not reset password." });
+  }
+});
+
 // Toggle client active/inactive
 app.post("/admin/toggle", async (req, res) => {
   const { adminPassword, id } = req.body;
@@ -170,17 +192,13 @@ app.post("/admin/toggle", async (req, res) => {
     const { clients, sha } = await getPasswords();
     const client = clients.find(c => c.id === id);
     if (!client) return res.status(404).json({ error: "Client not found." });
-
     if (client.active) {
-      // Deactivate — replace password with random string
       client.active = false;
       client.currentPassword = randomString();
     } else {
-      // Reactivate — restore original password
       client.active = true;
       client.currentPassword = client.password;
     }
-
     await savePasswords(clients, sha);
     res.json({ success: true, client });
   } catch (e) {
@@ -191,7 +209,6 @@ app.post("/admin/toggle", async (req, res) => {
 // Generate review response
 app.post("/generate", async (req, res) => {
   const { businessName, businessType, review, tone, stars, password } = req.body;
-
   try {
     const { clients } = await getPasswords();
     const validClient = clients.find(c => c.active && c.currentPassword === password);
@@ -201,11 +218,9 @@ app.post("/generate", async (req, res) => {
   } catch (e) {
     return res.status(500).json({ error: "Server error. Try again." });
   }
-
   if (!businessName || !review) {
     return res.status(400).json({ error: "Business name and review are required." });
   }
-
   const starLabel = stars > 0 ? `${stars}-star` : "unrated";
   const prompt = `You are a professional reputation manager for a ${businessType} called "${businessName}".
 
@@ -227,12 +242,10 @@ Write a ${tone.toLowerCase()} response to this review. Follow these rules:
       max_tokens: 300,
       messages: [{ role: "user", content: prompt }],
     });
-
     const text = message.content
       .filter((b) => b.type === "text")
       .map((b) => b.text)
       .join("");
-
     res.json({ response: text.trim() });
   } catch (error) {
     console.error("Anthropic error:", error.message);
