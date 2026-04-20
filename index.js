@@ -4,14 +4,57 @@ const path = require("path");
 
 const app = express();
 app.use(express.json());
-app.use(express.static("public"));
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+// List of active client passwords
+// Add a new line for each paying client
+// Remove the line if they stop paying
+const ACTIVE_PASSWORDS = [
+  "spicegarden2024",
+  "dentalcare2024",
+  "reviewmagic2024",
+];
+
+// Password check middleware
+app.use((req, res, next) => {
+  // Always allow static files through
+  if (req.path === "/" || req.path.endsWith(".html") || req.path.endsWith(".css") || req.path.endsWith(".js")) {
+    return next();
+  }
+  next();
+});
+
+// Serve login page at root
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "login.html"));
+});
+
+// Verify password
+app.post("/verify", (req, res) => {
+  const { password } = req.body;
+  if (ACTIVE_PASSWORDS.includes(password)) {
+    res.json({ success: true });
+  } else {
+    res.json({ success: false, error: "Invalid password. Please contact support." });
+  }
+});
+
+// Serve main app
+app.get("/app", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// Generate response
 app.post("/generate", async (req, res) => {
-  const { businessName, businessType, review, tone, stars } = req.body;
+  const { businessName, businessType, review, tone, stars, password } = req.body;
+
+  // Check password on every generate request too
+  if (!ACTIVE_PASSWORDS.includes(password)) {
+    return res.status(401).json({ error: "Unauthorized. Please log in again." });
+  }
 
   if (!businessName || !review) {
     return res.status(400).json({ error: "Business name and review are required." });
@@ -50,10 +93,6 @@ Write a ${tone.toLowerCase()} response to this review. Follow these rules:
     console.error("Anthropic error:", error.message);
     res.status(500).json({ error: "Failed to generate response. Check your API key." });
   }
-});
-
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 const PORT = process.env.PORT || 3000;
