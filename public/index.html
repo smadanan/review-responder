@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Review Responder — AI-Powered</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+      font-family: Georgia, serif;
+      padding: 2rem 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: #f1f5f9;
+    }
+    .header { text-align: center; margin-bottom: 2rem; max-width: 560px; }
+    .badge {
+      display: inline-block;
+      background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(99,102,241,0.3);
+      border-radius: 999px;
+      padding: 5px 14px;
+      font-size: 0.75rem;
+      color: #a5b4fc;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+      font-family: sans-serif;
+    }
+    h1 { font-size: clamp(1.8rem, 5vw, 2.4rem); color: #f8fafc; margin-bottom: 0.5rem; }
+    .subtitle { color: #94a3b8; font-size: 1rem; }
+    .card {
+      width: 100%; max-width: 580px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 1.5rem;
+      padding: 2rem;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.4);
+    }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem; }
+    .field { margin-bottom: 1.25rem; }
+    label {
+      display: block; color: #94a3b8; font-size: 0.78rem;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      margin-bottom: 6px; font-family: sans-serif;
+    }
+    input, select, textarea {
+      width: 100%; padding: 0.65rem 0.85rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 0.6rem; color: #f1f5f9;
+      font-size: 0.93rem; font-family: Georgia, serif;
+      transition: border 0.15s;
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: rgba(99,102,241,0.6); }
+    input::placeholder, textarea::placeholder { color: #475569; }
+    select option { background: #1e1b4b; }
+    textarea { resize: vertical; line-height: 1.6; }
+    .stars { display: flex; gap: 4px; margin-top: 6px; align-items: center; }
+    .star-btn { background: none; border: none; cursor: pointer; padding: 2px; font-size: 1.4rem; line-height: 1; transition: transform 0.1s; }
+    .star-btn:hover { transform: scale(1.2); }
+    .star-label { color: #94a3b8; font-size: 0.8rem; margin-left: 8px; font-family: sans-serif; }
+    .tones { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 6px; }
+    .tone-btn {
+      padding: 6px 14px; border-radius: 999px; font-size: 0.82rem;
+      cursor: pointer; border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04); color: #94a3b8;
+      transition: all 0.15s; font-family: sans-serif;
+    }
+    .tone-btn.active { border-color: #818cf8; background: rgba(99,102,241,0.25); color: #c7d2fe; }
+    .error {
+      color: #fca5a5; font-size: 0.82rem; padding: 10px 14px;
+      background: rgba(239,68,68,0.1); border-radius: 8px;
+      margin-bottom: 1rem; font-family: sans-serif; display: none;
+    }
+    .generate-btn {
+      width: 100%; padding: 0.85rem;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff; border: none; border-radius: 0.75rem;
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+      box-shadow: 0 4px 20px rgba(99,102,241,0.4);
+      transition: opacity 0.2s; font-family: sans-serif;
+    }
+    .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+    .result-card {
+      width: 100%; max-width: 580px; margin-top: 1.5rem;
+      background: rgba(16,185,129,0.06);
+      border: 1px solid rgba(16,185,129,0.25);
+      border-radius: 1.5rem; padding: 1.75rem; display: none;
+      animation: fadeIn 0.4s ease;
+    }
+    .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .result-label { color: #6ee7b7; font-size: 0.8rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.08em; font-family: sans-serif; }
+    .copy-btn {
+      padding: 6px 12px; border-radius: 8px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #94a3b8; cursor: pointer; font-size: 0.8rem;
+      transition: all 0.2s; font-family: sans-serif;
+    }
+    .copy-btn.copied { background: rgba(16,185,129,0.2); color: #6ee7b7; }
+    #responseText { color: #e2e8f0; line-height: 1.8; font-size: 0.97rem; white-space: pre-wrap; }
+    .result-footer { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.06); }
+    .regen-btn {
+      background: none; border: 1px solid rgba(255,255,255,0.1);
+      color: #94a3b8; padding: 6px 14px; border-radius: 8px;
+      font-size: 0.82rem; cursor: pointer; font-family: sans-serif;
+    }
+    .footer { color: #334155; font-size: 0.75rem; margin-top: 2rem; font-family: sans-serif; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="badge">✦ AI-Powered</div>
+    <h1>Review Responder</h1>
+    <p class="subtitle">Turn customer reviews into polished replies — in seconds.</p>
+  </div>
+  <div class="card">
+    <div class="row-2">
+      <div>
+        <label>Business Name</label>
+        <input id="businessName" type="text" placeholder="e.g. Spice Garden" />
+      </div>
+      <div>
+        <label>Business Type</label>
+        <select id="businessType">
+          <option>Restaurant</option>
+          <option>Hotel</option>
+          <option>Clinic / Hospital</option>
+          <option>Salon / Spa</option>
+          <option>Retail Shop</option>
+          <option>Real Estate</option>
+          <option>Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Review Rating</label>
+      <div class="stars" id="starsContainer">
+        <button class="star-btn" data-val="1">☆</button>
+        <button class="star-btn" data-val="2">☆</button>
+        <button class="star-btn" data-val="3">☆</button>
+        <button class="star-btn" data-val="4">☆</button>
+        <button class="star-btn" data-val="5">☆</button>
+        <span class="star-label" id="starLabel"></span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Customer Review</label>
+      <textarea id="reviewText" rows="4" placeholder="Paste the customer's review here..."></textarea>
+    </div>
+    <div class="field">
+      <label>Response Tone</label>
+      <div class="tones" id="tonesContainer">
+        <button class="tone-btn active" data-tone="Professional">Professional</button>
+        <button class="tone-btn" data-tone="Friendly & Warm">Friendly & Warm</button>
+        <button class="tone-btn" data-tone="Apologetic">Apologetic</button>
+        <button class="tone-btn" data-tone="Confident">Confident</button>
+      </div>
+    </div>
+    <div class="error" id="errorBox"></div>
+    <button class="generate-btn" id="generateBtn" onclick="generate()">
+      ✦ Generate Response
+    </button>
+  </div>
+  <div class="result-card" id="resultCard">
+    <div class="result-header">
+      <span class="result-label">✦ Your Response</span>
+      <button class="copy-btn" id="copyBtn" onclick="copyText()">Copy</button>
+    </div>
+    <p id="responseText"></p>
+    <div class="result-footer">
+      <button class="regen-btn" onclick="generate()">↻ Regenerate</button>
+    </div>
+  </div>
+  <p class="footer">Powered by Claude AI · Built for Indian SMBs</p>
+  <script>
+    let selectedStars = 0;
+    let selectedTone = "Professional";
+    const starLabels = ["", "Very Bad", "Poor", "Average", "Good", "Excellent"];
+    document.querySelectorAll(".star-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        selectedStars = parseInt(btn.dataset.val);
+        document.querySelectorAll(".star-btn").forEach((b, i) => {
+          b.textContent = i < selectedStars ? "★" : "☆";
+          b.style.color = i < selectedStars ? "#F59E0B" : "#9CA3AF";
+        });
+        document.getElementById("starLabel").textContent = starLabels[selectedStars];
+      });
+    });
+    document.querySelectorAll(".tone-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tone-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        selectedTone = btn.dataset.tone;
+      });
+    });
+    async function generate() {
+      const businessName = document.getElementById("businessName").value.trim();
+      const businessType = document.getElementById("businessType").value;
+      const review = document.getElementById("reviewText").value.trim();
+      const errorBox = document.getElementById("errorBox");
+      const btn = document.getElementById("generateBtn");
+      errorBox.style.display = "none";
+      if (!businessName) { showError("Please enter your business name."); return; }
+      if (!review) { showError("Please paste a customer review."); return; }
+      btn.disabled = true;
+      btn.textContent = "⟳ Crafting your response...";
+      try {
+        const res = await fetch("/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ businessName, businessType, review, tone: selectedTone, stars: selectedStars })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showError(data.error || "Something went wrong.");
+        } else {
+          document.getElementById("responseText").textContent = data.response;
+          document.getElementById("resultCard").style.display = "block";
+          document.getElementById("resultCard").scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      } catch (e) {
+        showError("Network error: " + e.message);
+      }
+      btn.disabled = false;
+      btn.textContent = "✦ Generate Response";
+    }
+    function showError(msg) {
+      const errorBox = document.getElementById("errorBox");
+      errorBox.textContent = msg;
+      errorBox.style.display = "block";
+    }
+    function copyText() {
+      const text = document.getElementById("responseText").textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById("copyBtn");
+        btn.textContent = "✓ Copied!";
+        btn.classList.add("copied");
+        setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>
