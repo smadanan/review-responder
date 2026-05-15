@@ -47,7 +47,9 @@ passport.deserializeUser((user, done) => done(null, user));
 // ─── Auth Middleware ──────────────────────────────────────────────────────────
 function isAuthenticated(req, res, next) {
   if (req.isAuthenticated()) return next();
-  res.redirect("/");
+  // Page routes → redirect to login. API routes → return 401 JSON.
+  if (req.path === "/app") return res.redirect("/");
+  return res.status(401).json({ error: "Session expired. Please log in again." });
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
