@@ -9,6 +9,8 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const app = express();
 app.use(express.json());
 
+app.set("trust proxy", 1); // ← ADD THIS
+
 // ─── Session & Passport ───────────────────────────────────────────────────────
 app.use(session({
   secret: process.env.SESSION_SECRET || "rr-secret-fallback",
