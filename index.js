@@ -7,9 +7,8 @@ const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 
 const app = express();
+app.set("trust proxy", 1);
 app.use(express.json());
-
-app.set("trust proxy", 1); // ← ADD THIS
 
 // ─── Session & Passport ───────────────────────────────────────────────────────
 app.use(session({
@@ -17,8 +16,8 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === "production", // true on Render (HTTPS)
-    maxAge: 7 * 24 * 60 * 60 * 1000               // 7 days
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 7 * 24 * 60 * 60 * 1000
   }
 }));
 
@@ -30,12 +29,12 @@ passport.use(new GoogleStrategy({
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
   callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback"
 }, (accessToken, refreshToken, profile, done) => {
-  // Store only what we need — no DB required
   const user = {
     id: profile.id,
     name: profile.displayName,
     email: profile.emails?.[0]?.value || "",
-    picture: profile.photos?.[0]?.value || ""
+    picture: profile.photos?.[0]?.value || "",
+    accessToken  // ← stored so we can call GMB APIs
   };
   return done(null, user);
 }));
@@ -54,6 +53,34 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const GITHUB_TOKEN   = process.env.GITHUB_TOKEN;
 const GITHUB_REPO    = process.env.GITHUB_REPO;
+
+// ─── Generic Google API Helper ────────────────────────────────────────────────
+function googleApiGet(accessToken, hostname, apiPath) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname,
+      path: apiPath,
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Accept": "application/json"
+      }
+    };
+    const req = https.request(options, (res) => {
+      let data = "";
+      res.on("data", chunk => data += chunk);
+      res.on("end", () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.error) return reject(new Error(parsed.error.message));
+          resolve(parsed);
+        } catch (e) { reject(e); }
+      });
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
 
 // ─── GitHub Password Store ────────────────────────────────────────────────────
 async function getPasswords() {
@@ -117,7 +144,6 @@ function randomString() {
 
 // ─── Page Routes ──────────────────────────────────────────────────────────────
 app.get("/", (req, res) => {
-  // Already logged in? Skip login page
   if (req.isAuthenticated()) return res.redirect("/app");
   res.sendFile(path.join(__dirname, "public", "login.html"));
 });
@@ -132,7 +158,14 @@ app.get("/admin", (req, res) => {
 
 // ─── Google OAuth Routes ──────────────────────────────────────────────────────
 app.get("/auth/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
+  passport.authenticate("google", {
+    scope: [
+      "profile",
+      "email",
+      "https://www.googleapis.com/auth/business.manage"
+    ],
+    accessType: "online"
+  })
 );
 
 app.get("/auth/google/callback",
@@ -147,39 +180,81 @@ app.get("/auth/logout", (req, res, next) => {
   });
 });
 
-// ─── Current User API ─────────────────────────────────────────────────────────
+// ─── Current User ─────────────────────────────────────────────────────────────
 app.get("/me", isAuthenticated, (req, res) => {
-  res.json({
-    name: req.user.name,
-    email: req.user.email,
-    picture: req.user.picture
-  });
+  res.json({ name: req.user.name, email: req.user.email, picture: req.user.picture });
 });
 
-// ─── Legacy Password Auth (kept for admin panel compatibility) ────────────────
+// ─── GMB: Accounts ───────────────────────────────────────────────────────────
+app.get("/gmb/accounts", isAuthenticated, async (req, res) => {
+  try {
+    const data = await googleApiGet(
+      req.user.accessToken,
+      "mybusinessaccountmanagement.googleapis.com",
+      "/v1/accounts"
+    );
+    res.json({ accounts: data.accounts || [] });
+  } catch (e) {
+    console.error("GMB accounts error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── GMB: Locations ───────────────────────────────────────────────────────────
+app.get("/gmb/locations", isAuthenticated, async (req, res) => {
+  const { accountName } = req.query; // "accounts/123456"
+  if (!accountName) return res.status(400).json({ error: "accountName required" });
+  try {
+    const data = await googleApiGet(
+      req.user.accessToken,
+      "mybusinessbusinessinformation.googleapis.com",
+      `/v1/${accountName}/locations?readMask=name,title,storefrontAddress`
+    );
+    res.json({ locations: data.locations || [] });
+  } catch (e) {
+    console.error("GMB locations error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── GMB: Reviews ─────────────────────────────────────────────────────────────
+app.get("/gmb/reviews", isAuthenticated, async (req, res) => {
+  const { accountName, locationName } = req.query;
+  // accountName  = "accounts/123"
+  // locationName = "locations/456"
+  if (!accountName || !locationName)
+    return res.status(400).json({ error: "accountName and locationName required" });
+  try {
+    const data = await googleApiGet(
+      req.user.accessToken,
+      "mybusiness.googleapis.com",
+      `/v4/${accountName}/${locationName}/reviews`
+    );
+    res.json({ reviews: data.reviews || [] });
+  } catch (e) {
+    console.error("GMB reviews error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Legacy Password Auth ─────────────────────────────────────────────────────
 app.post("/verify", async (req, res) => {
   const { password } = req.body;
   try {
     const { clients } = await getPasswords();
     const client = clients.find(c => c.active && c.currentPassword === password);
-    if (client) {
-      res.json({ success: true, clientName: client.client });
-    } else {
-      res.json({ success: false, error: "Invalid password. Please contact support." });
-    }
+    if (client) res.json({ success: true, clientName: client.client });
+    else res.json({ success: false, error: "Invalid password. Please contact support." });
   } catch (e) {
     res.status(500).json({ success: false, error: "Server error. Try again." });
   }
 });
 
-// ─── Admin Routes (unchanged) ─────────────────────────────────────────────────
+// ─── Admin Routes ─────────────────────────────────────────────────────────────
 app.post("/admin/verify", (req, res) => {
   const { password } = req.body;
-  if (password === ADMIN_PASSWORD) {
-    res.json({ success: true });
-  } else {
-    res.json({ success: false, error: "Invalid admin password." });
-  }
+  if (password === ADMIN_PASSWORD) res.json({ success: true });
+  else res.json({ success: false, error: "Invalid admin password." });
 });
 
 app.post("/admin/clients", async (req, res) => {
@@ -188,9 +263,7 @@ app.post("/admin/clients", async (req, res) => {
   try {
     const { clients } = await getPasswords();
     res.json({ clients });
-  } catch (e) {
-    res.status(500).json({ error: "Could not load clients." });
-  }
+  } catch (e) { res.status(500).json({ error: "Could not load clients." }); }
 });
 
 app.post("/admin/add", async (req, res) => {
@@ -202,9 +275,7 @@ app.post("/admin/add", async (req, res) => {
     clients.push({ id: newId, client, password, currentPassword: password, active: true });
     await savePasswords(clients, sha);
     res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: "Could not add client." });
-  }
+  } catch (e) { res.status(500).json({ error: "Could not add client." }); }
 });
 
 app.post("/admin/reset", async (req, res) => {
@@ -220,9 +291,7 @@ app.post("/admin/reset", async (req, res) => {
     client.currentPassword = newPassword.trim();
     await savePasswords(clients, sha);
     res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: "Could not reset password." });
-  }
+  } catch (e) { res.status(500).json({ error: "Could not reset password." }); }
 });
 
 app.post("/admin/toggle", async (req, res) => {
@@ -241,18 +310,14 @@ app.post("/admin/toggle", async (req, res) => {
     }
     await savePasswords(clients, sha);
     res.json({ success: true, client });
-  } catch (e) {
-    res.status(500).json({ error: "Could not update client." });
-  }
+  } catch (e) { res.status(500).json({ error: "Could not update client." }); }
 });
 
-// ─── Generate Review Response (session-authenticated) ────────────────────────
+// ─── Generate Review Response ─────────────────────────────────────────────────
 app.post("/generate", isAuthenticated, async (req, res) => {
   const { businessName, businessType, review, tone, stars } = req.body;
-
-  if (!businessName || !review) {
+  if (!businessName || !review)
     return res.status(400).json({ error: "Business name and review are required." });
-  }
 
   const starLabel = stars > 0 ? `${stars}-star` : "unrated";
   const prompt = `You are a professional reputation manager for a ${businessType} called "${businessName}".
