@@ -19,88 +19,119 @@
 
     /* ── User Bar ── */
     .user-bar {
-      position: fixed;
-      top: 1rem;
-      right: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 10px;
+      position: fixed; top: 1rem; right: 1rem;
+      display: flex; align-items: center; gap: 10px;
       background: rgba(255,255,255,0.05);
       border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 999px;
-      padding: 6px 14px 6px 8px;
-      z-index: 100;
-      backdrop-filter: blur(8px);
+      border-radius: 999px; padding: 6px 14px 6px 8px;
+      z-index: 100; backdrop-filter: blur(8px);
     }
-    .user-avatar {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: rgba(99,102,241,0.3);
-      object-fit: cover;
-      border: 1px solid rgba(99,102,241,0.4);
-    }
+    .user-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(99,102,241,0.4); display: none; }
     .user-avatar-fallback {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
+      width: 28px; height: 28px; border-radius: 50%;
       background: linear-gradient(135deg, #6366f1, #8b5cf6);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: #fff;
-      font-family: sans-serif;
-      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 700; color: #fff; font-family: sans-serif;
     }
-    .user-name {
-      font-family: sans-serif;
-      font-size: 0.78rem;
-      color: #94a3b8;
-      max-width: 120px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .logout-btn {
-      background: none;
-      border: none;
-      color: #475569;
-      font-size: 0.72rem;
-      cursor: pointer;
-      font-family: sans-serif;
-      padding: 0;
-      margin-left: 2px;
-      transition: color 0.15s;
-    }
+    .user-name { font-family: sans-serif; font-size: 0.78rem; color: #94a3b8; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .logout-btn { background: none; border: none; color: #475569; font-size: 0.72rem; cursor: pointer; font-family: sans-serif; transition: color 0.15s; }
     .logout-btn:hover { color: #fca5a5; }
 
     /* ── Header ── */
     .header { text-align: center; margin-bottom: 2rem; max-width: 560px; margin-top: 1rem; }
     .badge {
-      display: inline-block;
-      background: rgba(99,102,241,0.15);
-      border: 1px solid rgba(99,102,241,0.3);
-      border-radius: 999px;
-      padding: 5px 14px;
-      font-size: 0.75rem;
-      color: #a5b4fc;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      margin-bottom: 1rem;
-      font-family: sans-serif;
+      display: inline-block; background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(99,102,241,0.3); border-radius: 999px;
+      padding: 5px 14px; font-size: 0.75rem; color: #a5b4fc;
+      letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 1rem; font-family: sans-serif;
     }
     h1 { font-size: clamp(1.8rem, 5vw, 2.4rem); color: #f8fafc; margin-bottom: 0.5rem; }
     .subtitle { color: #94a3b8; font-size: 1rem; }
 
-    /* ── Card ── */
+    /* ── GMB Panel ── */
+    .gmb-panel {
+      width: 100%; max-width: 580px;
+      background: rgba(59, 130, 246, 0.06);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 1.5rem; padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .gmb-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .gmb-title {
+      display: flex; align-items: center; gap: 8px;
+      font-family: sans-serif; font-size: 0.88rem; font-weight: 600; color: #93c5fd;
+    }
+    .gmb-title svg { width: 18px; height: 18px; }
+    .gmb-toggle {
+      background: none; border: 1px solid rgba(59,130,246,0.3);
+      color: #60a5fa; border-radius: 8px; padding: 5px 12px;
+      font-size: 0.78rem; cursor: pointer; font-family: sans-serif;
+      transition: all 0.15s;
+    }
+    .gmb-toggle:hover { background: rgba(59,130,246,0.1); }
+    .gmb-body { display: none; }
+    .gmb-body.open { display: block; }
+
+    .gmb-selects { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; }
+    .gmb-select-wrap { display: flex; flex-direction: column; gap: 4px; }
+    .gmb-label { font-family: sans-serif; font-size: 0.72rem; color: #64748b; letter-spacing: 0.05em; text-transform: uppercase; }
+    .gmb-select {
+      width: 100%; padding: 0.6rem 0.85rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(59,130,246,0.2);
+      border-radius: 0.6rem; color: #f1f5f9;
+      font-size: 0.88rem; font-family: sans-serif;
+    }
+    .gmb-select:focus { outline: none; border-color: rgba(59,130,246,0.5); }
+    .gmb-select option { background: #1e1b4b; }
+    .gmb-select:disabled { opacity: 0.4; }
+
+    .gmb-load-btn {
+      width: 100%; padding: 0.65rem;
+      background: rgba(59,130,246,0.15);
+      border: 1px solid rgba(59,130,246,0.3);
+      color: #93c5fd; border-radius: 0.6rem;
+      font-size: 0.88rem; cursor: pointer; font-family: sans-serif;
+      transition: all 0.15s; margin-bottom: 1rem;
+    }
+    .gmb-load-btn:hover { background: rgba(59,130,246,0.25); }
+    .gmb-load-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Reviews List */
+    .reviews-list { display: flex; flex-direction: column; gap: 0.6rem; max-height: 320px; overflow-y: auto; }
+    .reviews-list::-webkit-scrollbar { width: 4px; }
+    .reviews-list::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+    .reviews-list::-webkit-scrollbar-thumb { background: rgba(59,130,246,0.3); border-radius: 4px; }
+
+    .review-item {
+      padding: 0.85rem 1rem;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 0.75rem; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .review-item:hover { background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.3); }
+    .review-item.selected { background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.5); }
+    .review-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+    .review-author { font-family: sans-serif; font-size: 0.82rem; font-weight: 600; color: #cbd5e1; }
+    .review-stars { color: #F59E0B; font-size: 0.8rem; letter-spacing: 1px; }
+    .review-date { font-family: sans-serif; font-size: 0.7rem; color: #475569; }
+    .review-snippet { font-size: 0.82rem; color: #64748b; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .review-no-text { font-size: 0.78rem; color: #475569; font-style: italic; }
+
+    .gmb-status { font-family: sans-serif; font-size: 0.8rem; color: #60a5fa; padding: 8px 0; text-align: center; }
+    .gmb-error { font-family: sans-serif; font-size: 0.8rem; color: #fca5a5; padding: 8px 0; text-align: center; }
+    .gmb-empty { font-family: sans-serif; font-size: 0.82rem; color: #475569; padding: 12px 0; text-align: center; }
+
+    /* ── Main Card ── */
     .card {
       width: 100%; max-width: 580px;
       background: rgba(255,255,255,0.04);
       border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 1.5rem;
-      padding: 2rem;
+      border-radius: 1.5rem; padding: 2rem;
       box-shadow: 0 25px 50px rgba(0,0,0,0.4);
     }
     .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem; }
@@ -123,13 +154,11 @@
     select option { background: #1e1b4b; }
     textarea { resize: vertical; line-height: 1.6; }
 
-    /* ── Stars ── */
     .stars { display: flex; gap: 4px; margin-top: 6px; align-items: center; }
     .star-btn { background: none; border: none; cursor: pointer; padding: 2px; font-size: 1.4rem; line-height: 1; transition: transform 0.1s; }
     .star-btn:hover { transform: scale(1.2); }
     .star-label { color: #94a3b8; font-size: 0.8rem; margin-left: 8px; font-family: sans-serif; }
 
-    /* ── Tones ── */
     .tones { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 6px; }
     .tone-btn {
       padding: 6px 14px; border-radius: 999px; font-size: 0.82rem;
@@ -139,14 +168,11 @@
     }
     .tone-btn.active { border-color: #818cf8; background: rgba(99,102,241,0.25); color: #c7d2fe; }
 
-    /* ── Error ── */
     .error {
       color: #fca5a5; font-size: 0.82rem; padding: 10px 14px;
       background: rgba(239,68,68,0.1); border-radius: 8px;
       margin-bottom: 1rem; font-family: sans-serif; display: none;
     }
-
-    /* ── Generate Button ── */
     .generate-btn {
       width: 100%; padding: 0.85rem;
       background: linear-gradient(135deg, #6366f1, #8b5cf6);
@@ -169,8 +195,7 @@
     .result-label { color: #6ee7b7; font-size: 0.8rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.08em; font-family: sans-serif; }
     .copy-btn {
       padding: 6px 12px; border-radius: 8px;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
       color: #94a3b8; cursor: pointer; font-size: 0.8rem;
       transition: all 0.2s; font-family: sans-serif;
     }
@@ -184,16 +209,15 @@
     }
 
     .footer { color: #334155; font-size: 0.75rem; margin-top: 2rem; font-family: sans-serif; }
-
     @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
 
-  <!-- User bar (top-right) -->
+  <!-- User Bar -->
   <div class="user-bar" id="userBar" style="display:none;">
     <div class="user-avatar-fallback" id="avatarFallback"></div>
-    <img class="user-avatar" id="avatarImg" style="display:none;" alt="avatar" />
+    <img class="user-avatar" id="avatarImg" alt="avatar" />
     <span class="user-name" id="userName"></span>
     <button class="logout-btn" onclick="logout()" title="Sign out">✕</button>
   </div>
@@ -204,6 +228,48 @@
     <p class="subtitle">Turn customer reviews into polished replies — in seconds.</p>
   </div>
 
+  <!-- GMB Panel -->
+  <div class="gmb-panel">
+    <div class="gmb-header">
+      <div class="gmb-title">
+        <!-- Google G icon -->
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        Load from Google My Business
+      </div>
+      <button class="gmb-toggle" id="gmbToggle" onclick="toggleGmb()">▾ Open</button>
+    </div>
+
+    <div class="gmb-body" id="gmbBody">
+      <div class="gmb-selects">
+        <div class="gmb-select-wrap">
+          <span class="gmb-label">Business Account</span>
+          <select class="gmb-select" id="accountSelect" onchange="onAccountChange()" disabled>
+            <option value="">— loading accounts —</option>
+          </select>
+        </div>
+        <div class="gmb-select-wrap">
+          <span class="gmb-label">Location</span>
+          <select class="gmb-select" id="locationSelect" disabled>
+            <option value="">— select account first —</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="gmb-load-btn" id="gmbLoadBtn" onclick="loadReviews()" disabled>
+        ↓ Load Reviews
+      </button>
+
+      <div id="gmbStatus"></div>
+      <div class="reviews-list" id="reviewsList"></div>
+    </div>
+  </div>
+
+  <!-- Main Form -->
   <div class="card">
     <div class="row-2">
       <div>
@@ -236,7 +302,7 @@
     </div>
     <div class="field">
       <label>Customer Review</label>
-      <textarea id="reviewText" rows="4" placeholder="Paste the customer's review here..."></textarea>
+      <textarea id="reviewText" rows="4" placeholder="Paste the customer's review here — or load from Google My Business above."></textarea>
     </div>
     <div class="field">
       <label>Response Tone</label>
@@ -268,56 +334,46 @@
 
   <script>
     let selectedStars = 0;
-    let selectedTone = "Professional";
-    const starLabels = ["", "Very Bad", "Poor", "Average", "Good", "Excellent"];
+    let selectedTone  = "Professional";
+    const starLabels  = ["", "Very Bad", "Poor", "Average", "Good", "Excellent"];
+    const starMap     = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 };
 
-    // ── Load user info from session ──────────────────────────────────────────
+    // ── Load User ──────────────────────────────────────────────────────────────
     async function loadUser() {
       try {
-        const res = await fetch("/me");
-        if (res.status === 401) {
-          // Not logged in — server will have already blocked /app, but just in case
-          window.location.href = "/";
-          return;
-        }
+        const res  = await fetch("/me");
+        if (res.status === 401) { window.location.href = "/"; return; }
         const user = await res.json();
-        const bar = document.getElementById("userBar");
-        const nameEl = document.getElementById("userName");
-        const fallback = document.getElementById("avatarFallback");
-        const imgEl = document.getElementById("avatarImg");
-
-        nameEl.textContent = user.name?.split(" ")[0] || user.email;
-
+        const bar  = document.getElementById("userBar");
+        document.getElementById("userName").textContent = user.name?.split(" ")[0] || user.email;
+        document.getElementById("avatarFallback").textContent = (user.name || user.email || "?")[0].toUpperCase();
         if (user.picture) {
-          imgEl.src = user.picture;
-          imgEl.style.display = "block";
-          fallback.style.display = "none";
-          imgEl.onerror = () => {
-            imgEl.style.display = "none";
-            fallback.style.display = "flex";
-          };
+          const img = document.getElementById("avatarImg");
+          img.src = user.picture;
+          img.style.display = "block";
+          document.getElementById("avatarFallback").style.display = "none";
+          img.onerror = () => { img.style.display = "none"; document.getElementById("avatarFallback").style.display = "flex"; };
         }
-        fallback.textContent = (user.name || user.email || "?")[0].toUpperCase();
         bar.style.display = "flex";
-      } catch (e) {
-        // silently fail — app still works
-      }
+      } catch(e) {}
     }
     loadUser();
 
-    // ── Stars ────────────────────────────────────────────────────────────────
+    // ── Stars ──────────────────────────────────────────────────────────────────
     document.querySelectorAll(".star-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        selectedStars = parseInt(btn.dataset.val);
-        document.querySelectorAll(".star-btn").forEach((b, i) => {
-          b.textContent = i < selectedStars ? "★" : "☆";
-          b.style.color = i < selectedStars ? "#F59E0B" : "#9CA3AF";
-        });
-        document.getElementById("starLabel").textContent = starLabels[selectedStars];
-      });
+      btn.addEventListener("click", () => setStars(parseInt(btn.dataset.val)));
     });
 
-    // ── Tones ────────────────────────────────────────────────────────────────
+    function setStars(n) {
+      selectedStars = n;
+      document.querySelectorAll(".star-btn").forEach((b, i) => {
+        b.textContent = i < n ? "★" : "☆";
+        b.style.color = i < n ? "#F59E0B" : "#9CA3AF";
+      });
+      document.getElementById("starLabel").textContent = starLabels[n];
+    }
+
+    // ── Tones ──────────────────────────────────────────────────────────────────
     document.querySelectorAll(".tone-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         document.querySelectorAll(".tone-btn").forEach(b => b.classList.remove("active"));
@@ -326,7 +382,180 @@
       });
     });
 
-    // ── Generate ─────────────────────────────────────────────────────────────
+    // ── GMB Panel ─────────────────────────────────────────────────────────────
+    let gmbOpen = false;
+
+    async function toggleGmb() {
+      gmbOpen = !gmbOpen;
+      document.getElementById("gmbBody").classList.toggle("open", gmbOpen);
+      document.getElementById("gmbToggle").textContent = gmbOpen ? "▴ Close" : "▾ Open";
+      if (gmbOpen && document.getElementById("accountSelect").options.length <= 1) {
+        await loadAccounts();
+      }
+    }
+
+    function setStatus(msg, isError = false) {
+      const el = document.getElementById("gmbStatus");
+      el.className = isError ? "gmb-error" : "gmb-status";
+      el.textContent = msg;
+    }
+
+    async function loadAccounts() {
+      const sel = document.getElementById("accountSelect");
+      setStatus("Loading your GMB accounts...");
+      sel.disabled = true;
+      try {
+        const res  = await fetch("/gmb/accounts");
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        sel.innerHTML = '<option value="">— select account —</option>';
+        if (!data.accounts.length) {
+          setStatus("No GMB accounts found for your Google profile.", true);
+          return;
+        }
+        data.accounts.forEach(acc => {
+          const opt = document.createElement("option");
+          opt.value = acc.name;          // "accounts/123456"
+          opt.textContent = acc.accountName || acc.name;
+          sel.appendChild(opt);
+        });
+
+        // Auto-select if only one account
+        if (data.accounts.length === 1) {
+          sel.value = data.accounts[0].name;
+          await loadLocations(data.accounts[0].name);
+        }
+
+        setStatus("");
+        sel.disabled = false;
+      } catch(e) {
+        setStatus("Could not load accounts: " + e.message, true);
+        sel.disabled = false;
+      }
+    }
+
+    async function onAccountChange() {
+      const accountName = document.getElementById("accountSelect").value;
+      const locSel = document.getElementById("locationSelect");
+      locSel.innerHTML = '<option value="">— loading locations —</option>';
+      locSel.disabled  = true;
+      document.getElementById("gmbLoadBtn").disabled = true;
+      document.getElementById("reviewsList").innerHTML = "";
+      if (!accountName) return;
+      await loadLocations(accountName);
+    }
+
+    async function loadLocations(accountName) {
+      const locSel = document.getElementById("locationSelect");
+      setStatus("Loading locations...");
+      try {
+        const res  = await fetch(`/gmb/locations?accountName=${encodeURIComponent(accountName)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        locSel.innerHTML = '<option value="">— select location —</option>';
+        if (!data.locations.length) {
+          setStatus("No locations found for this account.", true);
+          return;
+        }
+        data.locations.forEach(loc => {
+          const opt = document.createElement("option");
+          opt.value = loc.name;          // "locations/456"
+          opt.textContent = loc.title || loc.name;
+          locSel.appendChild(opt);
+        });
+
+        // Auto-select if only one location
+        if (data.locations.length === 1) {
+          locSel.value = data.locations[0].name;
+        }
+
+        setStatus("");
+        locSel.disabled = false;
+        document.getElementById("gmbLoadBtn").disabled = false;
+      } catch(e) {
+        setStatus("Could not load locations: " + e.message, true);
+      }
+    }
+
+    async function loadReviews() {
+      const accountName  = document.getElementById("accountSelect").value;
+      const locationName = document.getElementById("locationSelect").value;
+      const list = document.getElementById("reviewsList");
+
+      if (!accountName || !locationName) {
+        setStatus("Please select an account and location first.", true);
+        return;
+      }
+
+      setStatus("Fetching reviews...");
+      list.innerHTML = "";
+      document.getElementById("gmbLoadBtn").disabled = true;
+
+      try {
+        const res  = await fetch(
+          `/gmb/reviews?accountName=${encodeURIComponent(accountName)}&locationName=${encodeURIComponent(locationName)}`
+        );
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        if (!data.reviews.length) {
+          setStatus("");
+          list.innerHTML = '<p class="gmb-empty">No reviews found for this location.</p>';
+          return;
+        }
+
+        setStatus(`${data.reviews.length} review${data.reviews.length > 1 ? "s" : ""} found — click one to load it:`);
+        data.reviews.forEach(r => renderReviewItem(r, list));
+      } catch(e) {
+        setStatus("Could not load reviews: " + e.message, true);
+      }
+
+      document.getElementById("gmbLoadBtn").disabled = false;
+    }
+
+    function renderReviewItem(review, container) {
+      const stars     = starMap[review.starRating] || 0;
+      const starStr   = "★".repeat(stars) + "☆".repeat(5 - stars);
+      const author    = review.reviewer?.displayName || "Anonymous";
+      const comment   = review.comment || "";
+      const dateStr   = review.createTime
+        ? new Date(review.createTime).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+        : "";
+
+      const item = document.createElement("div");
+      item.className = "review-item";
+      item.innerHTML = `
+        <div class="review-meta">
+          <span class="review-author">${author}</span>
+          <span class="review-stars">${starStr}</span>
+        </div>
+        <div class="review-date">${dateStr}</div>
+        ${comment
+          ? `<div class="review-snippet">${comment}</div>`
+          : `<div class="review-no-text">No written review — rating only</div>`}
+      `;
+
+      item.addEventListener("click", () => {
+        // Deselect others
+        document.querySelectorAll(".review-item").forEach(el => el.classList.remove("selected"));
+        item.classList.add("selected");
+
+        // Auto-fill form
+        const locTitle = document.getElementById("locationSelect").selectedOptions[0]?.text || "";
+        if (locTitle) document.getElementById("businessName").value = locTitle;
+        document.getElementById("reviewText").value = comment || "(No written review — rating only)";
+        setStars(stars);
+
+        // Scroll to form
+        document.querySelector(".card").scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
+      container.appendChild(item);
+    }
+
+    // ── Generate ──────────────────────────────────────────────────────────────
     async function generate() {
       const businessName = document.getElementById("businessName").value.trim();
       const businessType = document.getElementById("businessType").value;
@@ -338,7 +567,7 @@
       if (!businessName) { showError("Please enter your business name."); return; }
       if (!review)        { showError("Please paste a customer review."); return; }
 
-      btn.disabled = true;
+      btn.disabled    = true;
       btn.textContent = "⟳ Crafting your response...";
 
       try {
@@ -347,39 +576,28 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ businessName, businessType, review, tone: selectedTone, stars: selectedStars })
         });
-
-        if (res.status === 401) {
-          // Session expired
-          window.location.href = "/";
-          return;
-        }
-
+        if (res.status === 401) { window.location.href = "/"; return; }
         const data = await res.json();
-
-        if (!res.ok) {
-          showError(data.error || "Something went wrong.");
-        } else {
+        if (!res.ok) { showError(data.error || "Something went wrong."); }
+        else {
           document.getElementById("responseText").textContent = data.response;
           document.getElementById("resultCard").style.display = "block";
           document.getElementById("resultCard").scrollIntoView({ behavior: "smooth", block: "nearest" });
         }
-      } catch (e) {
-        showError("Network error: " + e.message);
-      }
+      } catch(e) { showError("Network error: " + e.message); }
 
-      btn.disabled = false;
+      btn.disabled    = false;
       btn.textContent = "✦ Generate Response";
     }
 
     function showError(msg) {
-      const errorBox = document.getElementById("errorBox");
-      errorBox.textContent = msg;
-      errorBox.style.display = "block";
+      const box = document.getElementById("errorBox");
+      box.textContent  = msg;
+      box.style.display = "block";
     }
 
     function copyText() {
-      const text = document.getElementById("responseText").textContent;
-      navigator.clipboard.writeText(text).then(() => {
+      navigator.clipboard.writeText(document.getElementById("responseText").textContent).then(() => {
         const btn = document.getElementById("copyBtn");
         btn.textContent = "✓ Copied!";
         btn.classList.add("copied");
@@ -387,9 +605,7 @@
       });
     }
 
-    function logout() {
-      window.location.href = "/auth/logout";
-    }
+    function logout() { window.location.href = "/auth/logout"; }
   </script>
 
 </body>
