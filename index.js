@@ -34,7 +34,7 @@ passport.use(new GoogleStrategy({
     name: profile.displayName,
     email: profile.emails?.[0]?.value || "",
     picture: profile.photos?.[0]?.value || "",
-    accessToken  // ← stored so we can call GMB APIs
+    accessToken
   };
   return done(null, user);
 }));
@@ -50,31 +50,26 @@ function isAuthenticated(req, res, next) {
 
 // ─── Anthropic & Config ───────────────────────────────────────────────────────
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-const GITHUB_TOKEN   = process.env.GITHUB_TOKEN;
-const GITHUB_REPO    = process.env.GITHUB_REPO;
+const ADMIN_PASSWORD       = process.env.ADMIN_PASSWORD;
+const GITHUB_TOKEN         = process.env.GITHUB_TOKEN;
+const GITHUB_REPO          = process.env.GITHUB_REPO;
+const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 
-// ─── Generic Google API Helper ────────────────────────────────────────────────
-function googleApiGet(accessToken, hostname, apiPath) {
+// ─── Generic HTTPS GET Helper ─────────────────────────────────────────────────
+function httpsGet(hostname, apiPath) {
   return new Promise((resolve, reject) => {
     const options = {
       hostname,
       path: apiPath,
       method: "GET",
-      headers: {
-        "Authorization": `Bearer ${accessToken}`,
-        "Accept": "application/json"
-      }
+      headers: { "Accept": "application/json" }
     };
     const req = https.request(options, (res) => {
       let data = "";
       res.on("data", chunk => data += chunk);
       res.on("end", () => {
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.error) return reject(new Error(parsed.error.message));
-          resolve(parsed);
-        } catch (e) { reject(e); }
+        try { resolve(JSON.parse(data)); }
+        catch (e) { reject(e); }
       });
     });
     req.on("error", reject);
@@ -159,11 +154,7 @@ app.get("/admin", (req, res) => {
 // ─── Google OAuth Routes ──────────────────────────────────────────────────────
 app.get("/auth/google",
   passport.authenticate("google", {
-    scope: [
-      "profile",
-      "email",
-      "https://www.googleapis.com/auth/business.manage"
-    ],
+    scope: ["profile", "email"],
     accessType: "online"
   })
 );
@@ -180,59 +171,69 @@ app.get("/auth/logout", (req, res, next) => {
   });
 });
 
-// ─── Current User ─────────────────────────────────────────────────────────────
 app.get("/me", isAuthenticated, (req, res) => {
   res.json({ name: req.user.name, email: req.user.email, picture: req.user.picture });
 });
 
-// ─── GMB: Accounts ───────────────────────────────────────────────────────────
-app.get("/gmb/accounts", isAuthenticated, async (req, res) => {
+// ─── Places: Search Businesses ────────────────────────────────────────────────
+app.get("/places/search", isAuthenticated, async (req, res) => {
+  const { query } = req.query;
+  if (!query) return res.status(400).json({ error: "query is required" });
+
   try {
-    const data = await googleApiGet(
-      req.user.accessToken,
-      "mybusinessaccountmanagement.googleapis.com",
-      "/v1/accounts"
+    const encoded = encodeURIComponent(query);
+    const data = await httpsGet(
+      "maps.googleapis.com",
+      `/maps/api/place/textsearch/json?query=${encoded}&key=${GOOGLE_PLACES_API_KEY}`
     );
-    res.json({ accounts: data.accounts || [] });
+
+    if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
+      return res.status(500).json({ error: data.error_message || data.status });
+    }
+
+    const places = (data.results || []).slice(0, 6).map(p => ({
+      placeId: p.place_id,
+      name: p.name,
+      address: p.formatted_address,
+      rating: p.rating,
+      totalRatings: p.user_ratings_total
+    }));
+
+    res.json({ places });
   } catch (e) {
-    console.error("GMB accounts error:", e.message);
+    console.error("Places search error:", e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
-// ─── GMB: Locations ───────────────────────────────────────────────────────────
-app.get("/gmb/locations", isAuthenticated, async (req, res) => {
-  const { accountName } = req.query; // "accounts/123456"
-  if (!accountName) return res.status(400).json({ error: "accountName required" });
-  try {
-    const data = await googleApiGet(
-      req.user.accessToken,
-      "mybusinessbusinessinformation.googleapis.com",
-      `/v1/${accountName}/locations?readMask=name,title,storefrontAddress`
-    );
-    res.json({ locations: data.locations || [] });
-  } catch (e) {
-    console.error("GMB locations error:", e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
+// ─── Places: Get Reviews ──────────────────────────────────────────────────────
+app.get("/places/reviews", isAuthenticated, async (req, res) => {
+  const { placeId } = req.query;
+  if (!placeId) return res.status(400).json({ error: "placeId is required" });
 
-// ─── GMB: Reviews ─────────────────────────────────────────────────────────────
-app.get("/gmb/reviews", isAuthenticated, async (req, res) => {
-  const { accountName, locationName } = req.query;
-  // accountName  = "accounts/123"
-  // locationName = "locations/456"
-  if (!accountName || !locationName)
-    return res.status(400).json({ error: "accountName and locationName required" });
   try {
-    const data = await googleApiGet(
-      req.user.accessToken,
-      "mybusiness.googleapis.com",
-      `/v4/${accountName}/${locationName}/reviews`
+    const data = await httpsGet(
+      "maps.googleapis.com",
+      `/maps/api/place/details/json?place_id=${placeId}&fields=name,rating,reviews&key=${GOOGLE_PLACES_API_KEY}`
     );
-    res.json({ reviews: data.reviews || [] });
+
+    if (data.status !== "OK") {
+      return res.status(500).json({ error: data.error_message || data.status });
+    }
+
+    const result = data.result || {};
+    res.json({
+      name: result.name,
+      rating: result.rating,
+      reviews: (result.reviews || []).map(r => ({
+        author: r.author_name,
+        rating: r.rating,
+        text: r.text,
+        time: r.relative_time_description
+      }))
+    });
   } catch (e) {
-    console.error("GMB reviews error:", e.message);
+    console.error("Places reviews error:", e.message);
     res.status(500).json({ error: e.message });
   }
 });
