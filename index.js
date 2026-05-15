@@ -2,19 +2,58 @@ const express = require("express");
 const Anthropic = require("@anthropic-ai/sdk");
 const path = require("path");
 const https = require("https");
+const session = require("express-session");
+const passport = require("passport");
+const GoogleStrategy = require("passport-google-oauth20").Strategy;
 
 const app = express();
 app.use(express.json());
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+// ─── Session & Passport ───────────────────────────────────────────────────────
+app.use(session({
+  secret: process.env.SESSION_SECRET || "rr-secret-fallback",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === "production", // true on Render (HTTPS)
+    maxAge: 7 * 24 * 60 * 60 * 1000               // 7 days
+  }
+}));
 
+app.use(passport.initialize());
+app.use(passport.session());
+
+passport.use(new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback"
+}, (accessToken, refreshToken, profile, done) => {
+  // Store only what we need — no DB required
+  const user = {
+    id: profile.id,
+    name: profile.displayName,
+    email: profile.emails?.[0]?.value || "",
+    picture: profile.photos?.[0]?.value || ""
+  };
+  return done(null, user);
+}));
+
+passport.serializeUser((user, done) => done(null, user));
+passport.deserializeUser((user, done) => done(null, user));
+
+// ─── Auth Middleware ──────────────────────────────────────────────────────────
+function isAuthenticated(req, res, next) {
+  if (req.isAuthenticated()) return next();
+  res.redirect("/");
+}
+
+// ─── Anthropic & Config ───────────────────────────────────────────────────────
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_REPO = process.env.GITHUB_REPO;
+const GITHUB_TOKEN   = process.env.GITHUB_TOKEN;
+const GITHUB_REPO    = process.env.GITHUB_REPO;
 
-// Fetch passwords from GitHub
+// ─── GitHub Password Store ────────────────────────────────────────────────────
 async function getPasswords() {
   return new Promise((resolve, reject) => {
     const options = {
@@ -35,9 +74,7 @@ async function getPasswords() {
           const parsed = JSON.parse(data);
           const content = Buffer.from(parsed.content, "base64").toString("utf8");
           resolve({ clients: JSON.parse(content), sha: parsed.sha });
-        } catch (e) {
-          reject(e);
-        }
+        } catch (e) { reject(e); }
       });
     });
     req.on("error", reject);
@@ -45,15 +82,10 @@ async function getPasswords() {
   });
 }
 
-// Save passwords to GitHub
 async function savePasswords(clients, sha) {
   return new Promise((resolve, reject) => {
     const content = Buffer.from(JSON.stringify(clients, null, 2)).toString("base64");
-    const body = JSON.stringify({
-      message: "Update passwords",
-      content,
-      sha
-    });
+    const body = JSON.stringify({ message: "Update passwords", content, sha });
     const options = {
       hostname: "api.github.com",
       path: `/repos/${GITHUB_REPO}/contents/passwords.json`,
@@ -77,27 +109,52 @@ async function savePasswords(clients, sha) {
   });
 }
 
-// Generate random 4 letter string
 function randomString() {
   return Math.random().toString(36).substring(2, 6);
 }
 
-// Serve login page
+// ─── Page Routes ──────────────────────────────────────────────────────────────
 app.get("/", (req, res) => {
+  // Already logged in? Skip login page
+  if (req.isAuthenticated()) return res.redirect("/app");
   res.sendFile(path.join(__dirname, "public", "login.html"));
 });
 
-// Serve main app
-app.get("/app", (req, res) => {
+app.get("/app", isAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Serve admin page
 app.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "admin.html"));
 });
 
-// Verify client password
+// ─── Google OAuth Routes ──────────────────────────────────────────────────────
+app.get("/auth/google",
+  passport.authenticate("google", { scope: ["profile", "email"] })
+);
+
+app.get("/auth/google/callback",
+  passport.authenticate("google", { failureRedirect: "/?error=auth_failed" }),
+  (req, res) => res.redirect("/app")
+);
+
+app.get("/auth/logout", (req, res, next) => {
+  req.logout((err) => {
+    if (err) return next(err);
+    req.session.destroy(() => res.redirect("/"));
+  });
+});
+
+// ─── Current User API ─────────────────────────────────────────────────────────
+app.get("/me", isAuthenticated, (req, res) => {
+  res.json({
+    name: req.user.name,
+    email: req.user.email,
+    picture: req.user.picture
+  });
+});
+
+// ─── Legacy Password Auth (kept for admin panel compatibility) ────────────────
 app.post("/verify", async (req, res) => {
   const { password } = req.body;
   try {
@@ -113,7 +170,7 @@ app.post("/verify", async (req, res) => {
   }
 });
 
-// Verify admin password
+// ─── Admin Routes (unchanged) ─────────────────────────────────────────────────
 app.post("/admin/verify", (req, res) => {
   const { password } = req.body;
   if (password === ADMIN_PASSWORD) {
@@ -123,12 +180,9 @@ app.post("/admin/verify", (req, res) => {
   }
 });
 
-// Get all clients
 app.post("/admin/clients", async (req, res) => {
   const { adminPassword } = req.body;
-  if (adminPassword !== ADMIN_PASSWORD) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  if (adminPassword !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
   try {
     const { clients } = await getPasswords();
     res.json({ clients });
@@ -137,22 +191,13 @@ app.post("/admin/clients", async (req, res) => {
   }
 });
 
-// Add new client
 app.post("/admin/add", async (req, res) => {
   const { adminPassword, client, password } = req.body;
-  if (adminPassword !== ADMIN_PASSWORD) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  if (adminPassword !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
   try {
     const { clients, sha } = await getPasswords();
     const newId = clients.length > 0 ? Math.max(...clients.map(c => c.id)) + 1 : 1;
-    clients.push({
-      id: newId,
-      client,
-      password,
-      currentPassword: password,
-      active: true
-    });
+    clients.push({ id: newId, client, password, currentPassword: password, active: true });
     await savePasswords(clients, sha);
     res.json({ success: true });
   } catch (e) {
@@ -160,15 +205,11 @@ app.post("/admin/add", async (req, res) => {
   }
 });
 
-// Reset client password
 app.post("/admin/reset", async (req, res) => {
   const { adminPassword, id, newPassword } = req.body;
-  if (adminPassword !== ADMIN_PASSWORD) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-  if (!newPassword || newPassword.trim().length < 4) {
+  if (adminPassword !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+  if (!newPassword || newPassword.trim().length < 4)
     return res.status(400).json({ error: "Password must be at least 4 characters." });
-  }
   try {
     const { clients, sha } = await getPasswords();
     const client = clients.find(c => c.id === id);
@@ -182,12 +223,9 @@ app.post("/admin/reset", async (req, res) => {
   }
 });
 
-// Toggle client active/inactive
 app.post("/admin/toggle", async (req, res) => {
   const { adminPassword, id } = req.body;
-  if (adminPassword !== ADMIN_PASSWORD) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  if (adminPassword !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
   try {
     const { clients, sha } = await getPasswords();
     const client = clients.find(c => c.id === id);
@@ -206,21 +244,14 @@ app.post("/admin/toggle", async (req, res) => {
   }
 });
 
-// Generate review response
-app.post("/generate", async (req, res) => {
-  const { businessName, businessType, review, tone, stars, password } = req.body;
-  try {
-    const { clients } = await getPasswords();
-    const validClient = clients.find(c => c.active && c.currentPassword === password);
-    if (!validClient) {
-      return res.status(401).json({ error: "Unauthorized. Please log in again." });
-    }
-  } catch (e) {
-    return res.status(500).json({ error: "Server error. Try again." });
-  }
+// ─── Generate Review Response (session-authenticated) ────────────────────────
+app.post("/generate", isAuthenticated, async (req, res) => {
+  const { businessName, businessType, review, tone, stars } = req.body;
+
   if (!businessName || !review) {
     return res.status(400).json({ error: "Business name and review are required." });
   }
+
   const starLabel = stars > 0 ? `${stars}-star` : "unrated";
   const prompt = `You are a professional reputation manager for a ${businessType} called "${businessName}".
 
@@ -240,11 +271,11 @@ Write a ${tone.toLowerCase()} response to this review. Follow these rules:
     const message = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 300,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: prompt }]
     });
     const text = message.content
-      .filter((b) => b.type === "text")
-      .map((b) => b.text)
+      .filter(b => b.type === "text")
+      .map(b => b.text)
       .join("");
     res.json({ response: text.trim() });
   } catch (error) {
@@ -254,6 +285,4 @@ Write a ${tone.toLowerCase()} response to this review. Follow these rules:
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Review Responder running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Review Responder running on port ${PORT}`));
