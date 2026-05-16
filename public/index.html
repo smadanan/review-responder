@@ -995,4 +995,411 @@ list.appendChild(el);
 });
 }
 
-function copyHistoryIte
+function copyHistoryItem(idx) {
+const item = getHistory()[idx];
+if (!item) return;
+navigator.clipboard.writeText(item.response).then(() => {
+const btns = document.querySelectorAll(".history-copy-btn");
+if (btns[idx]) { btns[idx].textContent = "✓ Copied!"; setTimeout(() => { btns[idx].textContent = "Copy Response"; }, 2000); }
+});
+}
+
+function deleteHistoryItem(idx) {
+const h = getHistory(); h.splice(idx, 1); saveHistory(h);
+updateHistoryCount(); renderHistory();
+}
+
+function clearHistory() {
+if (!confirm("Clear all reply history? This cannot be undone.")) return;
+saveHistory([]);
+updateHistoryCount(); renderHistory();
+}
+
+// ── Loading / Progress Helpers ────────────────────────────────────────────
+let _progressTimers = [];
+
+function startProgressSteps() {
+  const panel = document.getElementById("progressPanel");
+  const steps = ["pStep1","pStep2","pStep3","pStep4"];
+  panel.style.display = "block";
+  steps.forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove("visible","done");
+  });
+  panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+  const delays = [120, 900, 1800, 2800];
+  delays.forEach((ms, i) => {
+    const t = setTimeout(() => {
+      if (i > 0) document.getElementById(steps[i-1]).classList.replace("visible","done");
+      document.getElementById(steps[i]).classList.add("visible");
+    }, ms);
+    _progressTimers.push(t);
+  });
+}
+
+function stopProgressSteps(success = true) {
+  _progressTimers.forEach(t => clearTimeout(t));
+  _progressTimers = [];
+  if (success) {
+    ["pStep1","pStep2","pStep3","pStep4"].forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.remove("visible");
+      el.classList.add("done");
+    });
+    setTimeout(() => { document.getElementById("progressPanel").style.display = "none"; }, 400);
+  } else {
+    document.getElementById("progressPanel").style.display = "none";
+    ["pStep1","pStep2","pStep3","pStep4"].forEach(id => {
+      document.getElementById(id).classList.remove("visible","done");
+    });
+  }
+}
+
+function showSkeleton() {
+  const card = document.getElementById("resultCard");
+  card.style.display = "block";
+  document.getElementById("responseText").innerHTML =
+    `<div class="skeleton-line"></div>
+     <div class="skeleton-line"></div>
+     <div class="skeleton-line"></div>
+     <div class="skeleton-line"></div>
+     <div class="skeleton-line"></div>`;
+  document.getElementById("copyBtn").style.visibility = "hidden";
+  document.getElementById("markRespondedBtn").style.visibility = "hidden";
+  document.getElementById("resultCard").querySelector(".regen-btn").style.visibility = "hidden";
+  document.getElementById("resultCard").querySelector(".result-label").textContent = "✦ Generating...";
+}
+
+function hideSkeleton() {
+  document.getElementById("copyBtn").style.visibility = "visible";
+  document.getElementById("markRespondedBtn").style.visibility = "visible";
+  document.getElementById("resultCard").querySelector(".regen-btn").style.visibility = "visible";
+  document.getElementById("resultCard").querySelector(".result-label").textContent = "✦ Your Response";
+}
+
+function typewriterEffect(text, element, speed = 14) {
+  element.textContent = "";
+  element.style.opacity = "1";
+  let i = 0;
+  const tick = () => {
+    if (i < text.length) {
+      element.textContent += text[i++];
+      setTimeout(tick, speed);
+    }
+  };
+  tick();
+}
+
+// ── Generate ──────────────────────────────────────────────────────────────
+async function generate() {
+const businessName = document.getElementById("businessName").value.trim();
+const businessType = document.getElementById("businessType").value;
+const review = document.getElementById("reviewText").value.trim();
+const language = document.getElementById("language").value;
+const minWords = parseInt(document.getElementById("minWords").value);
+const maxWords = parseInt(document.getElementById("maxWords").value);
+const customInstructions = document.getElementById("customInstructions").value.trim();
+const errorBox = document.getElementById("errorBox");
+const btn = document.getElementById("generateBtn");
+const btnText = document.getElementById("generateBtnText");
+
+errorBox.style.display = "none";
+if (!businessName) { showError("Please enter your business name."); return; }
+if (!review) { showError("Please paste a customer review."); return; }
+if (minWords >= maxWords) { showError("Min words must be less than max words."); return; }
+
+btn.disabled = true;
+btn.classList.add("loading");
+btnText.textContent = "Crafting your response...";
+
+startProgressSteps();
+showSkeleton();
+
+try {
+const res = await fetch("/generate", {
+method: "POST",
+headers: { "Content-Type": "application/json" },
+body: JSON.stringify({ businessName, businessType, review, tone: selectedTone, stars: selectedStars, language, minWords, maxWords, customInstructions })
+});
+if (res.status === 401) { window.location.href = "/"; return; }
+const data = await res.json();
+if (!res.ok) {
+  stopProgressSteps(false);
+  document.getElementById("resultCard").style.display = "none";
+  showError(data.error || "Something went wrong.");
+} else {
+  stopProgressSteps(true);
+  hideSkeleton();
+
+  const responseEl = document.getElementById("responseText");
+  responseEl.style.opacity = "0";
+  setTimeout(() => {
+    responseEl.style.opacity = "1";
+    typewriterEffect(data.response, responseEl);
+  }, 450);
+
+  document.getElementById("resultCard").scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+  const markBtn = document.getElementById("markRespondedBtn");
+  const alreadyResponded = currentReviewKey && isResponded(currentReviewKey);
+  markBtn.classList.toggle("done", alreadyResponded);
+  markBtn.textContent = alreadyResponded ? "✓ Already Responded" : "✓ Mark as Responded";
+
+  addToHistory({
+    businessName, reviewText: review,
+    stars: selectedStars, tone: selectedTone,
+    language, response: data.response,
+    timestamp: new Date().toISOString()
+  });
+}
+} catch(e) {
+  stopProgressSteps(false);
+  document.getElementById("resultCard").style.display = "none";
+  showError("Network error: " + e.message);
+}
+
+btn.disabled = false;
+btn.classList.remove("loading");
+btnText.textContent = "✦ Generate Response";
+}
+
+function showError(msg) {
+const box = document.getElementById("errorBox");
+box.textContent = msg; box.style.display = "block";
+}
+
+function copyText() {
+navigator.clipboard.writeText(document.getElementById("responseText").textContent).then(() => {
+const btn = document.getElementById("copyBtn");
+btn.textContent = "✓ Copied!"; btn.classList.add("copied");
+setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 2000);
+});
+}
+
+function logout() { window.location.href = "/auth/logout"; }
+
+// ── Bottom Sheet ────────────────────────────────────────────────────────────
+let sheetSelectedTone = "Professional";
+let _sheetProgressTimers = [];
+let _sheetCurrentReview = null;
+
+document.querySelectorAll("[data-stone]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("[data-stone]").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    sheetSelectedTone = btn.dataset.stone;
+  });
+});
+
+function openSheet(review) {
+  _sheetCurrentReview = review;
+  const n = review.rating || 0;
+  const starStr = "★".repeat(n) + "☆".repeat(5 - n);
+
+  document.getElementById("sheetAuthor").textContent = review.author || "Anonymous";
+  document.getElementById("sheetStars").textContent = starStr;
+  document.getElementById("sheetBiz").textContent = currentBusinessName;
+  const wrap = document.getElementById("sheetReviewTextWrap");
+  wrap.innerHTML = review.text
+    ? `<div class="sheet-review-text">${review.text}</div>`
+    : `<div class="sheet-review-no-text">No written review — rating only</div>`;
+
+  sheetSelectedTone = "Professional";
+  document.querySelectorAll("[data-stone]").forEach((b, i) => b.classList.toggle("active", i === 0));
+  document.getElementById("sheetLanguage").value = "English";
+
+  document.getElementById("sheetResultCard").style.display = "none";
+  document.getElementById("sheetProgressPanel").style.display = "none";
+  document.getElementById("sheetError").style.display = "none";
+  document.getElementById("sheetResponseText").textContent = "";
+  ["spStep1","spStep2","spStep3","spStep4"].forEach(id =>
+    document.getElementById(id).classList.remove("visible","done"));
+
+  const done = currentReviewKey && isResponded(currentReviewKey);
+  const markBtn = document.getElementById("sheetMarkBtn");
+  markBtn.classList.toggle("done", done);
+  markBtn.textContent = done ? "✓ Already Responded" : "✓ Mark as Responded";
+  markBtn.style.visibility = "visible";
+
+  document.getElementById("sheetOverlay").classList.add("open");
+  document.getElementById("bottomSheet").classList.add("open");
+  document.body.style.overflow = "hidden";
+  document.getElementById("sheetBody").scrollTop = 0;
+}
+
+function closeSheet() {
+  document.getElementById("sheetOverlay").classList.remove("open");
+  document.getElementById("bottomSheet").classList.remove("open");
+  document.body.style.overflow = "";
+  stopSheetProgress(false);
+  _sheetCurrentReview = null;
+}
+
+function startSheetProgress() {
+  const panel = document.getElementById("sheetProgressPanel");
+  const steps = ["spStep1","spStep2","spStep3","spStep4"];
+  panel.style.display = "block";
+  steps.forEach(id => document.getElementById(id).classList.remove("visible","done"));
+  const delays = [120, 900, 1800, 2800];
+  delays.forEach((ms, i) => {
+    const t = setTimeout(() => {
+      if (i > 0) document.getElementById(steps[i-1]).classList.replace("visible","done");
+      document.getElementById(steps[i]).classList.add("visible");
+    }, ms);
+    _sheetProgressTimers.push(t);
+  });
+}
+
+function stopSheetProgress(success = true) {
+  _sheetProgressTimers.forEach(t => clearTimeout(t));
+  _sheetProgressTimers = [];
+  if (success) {
+    ["spStep1","spStep2","spStep3","spStep4"].forEach(id => {
+      document.getElementById(id).classList.remove("visible");
+      document.getElementById(id).classList.add("done");
+    });
+    setTimeout(() => { document.getElementById("sheetProgressPanel").style.display = "none"; }, 400);
+  } else {
+    document.getElementById("sheetProgressPanel").style.display = "none";
+    ["spStep1","spStep2","spStep3","spStep4"].forEach(id =>
+      document.getElementById(id).classList.remove("visible","done"));
+  }
+}
+
+function showSheetSkeleton() {
+  const card = document.getElementById("sheetResultCard");
+  card.style.display = "block";
+  document.getElementById("sheetResponseText").innerHTML =
+    `<div class="skeleton-line"></div>
+     <div class="skeleton-line"></div>
+     <div class="skeleton-line"></div>
+     <div class="skeleton-line"></div>
+     <div class="skeleton-line"></div>`;
+  document.getElementById("sheetCopyBtn").style.visibility = "hidden";
+  document.getElementById("sheetMarkBtn").style.visibility = "hidden";
+  card.querySelector(".regen-btn").style.visibility = "hidden";
+  document.getElementById("sheetResultLabel").textContent = "✦ Generating...";
+  setTimeout(() => card.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100);
+}
+
+function hideSheetSkeleton() {
+  document.getElementById("sheetCopyBtn").style.visibility = "visible";
+  document.getElementById("sheetMarkBtn").style.visibility = "visible";
+  document.getElementById("sheetResultCard").querySelector(".regen-btn").style.visibility = "visible";
+  document.getElementById("sheetResultLabel").textContent = "✦ Your Response";
+}
+
+async function generateInSheet() {
+  const businessName = currentBusinessName || document.getElementById("businessName").value.trim();
+  const businessType = document.getElementById("businessType").value;
+  const reviewText = _sheetCurrentReview
+    ? (_sheetCurrentReview.text || "No written review, rating only")
+    : "";
+  const language = document.getElementById("sheetLanguage").value;
+  const minWords = parseInt(document.getElementById("minWords").value);
+  const maxWords = parseInt(document.getElementById("maxWords").value);
+  const customInstructions = document.getElementById("customInstructions").value.trim();
+
+  const errorBox = document.getElementById("sheetError");
+  const btn = document.getElementById("sheetGenerateBtn");
+  const btnText = document.getElementById("sheetGenerateBtnText");
+
+  errorBox.style.display = "none";
+  if (!businessName) { errorBox.textContent = "Business name missing."; errorBox.style.display = "block"; return; }
+
+  btn.disabled = true;
+  btn.classList.add("loading");
+  btnText.textContent = "Crafting your response...";
+  startSheetProgress();
+  showSheetSkeleton();
+
+  try {
+    const res = await fetch("/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        businessName, businessType, review: reviewText,
+        tone: sheetSelectedTone, stars: selectedStars,
+        language, minWords, maxWords, customInstructions
+      })
+    });
+    if (res.status === 401) { window.location.href = "/"; return; }
+    const data = await res.json();
+    if (!res.ok) {
+      stopSheetProgress(false);
+      document.getElementById("sheetResultCard").style.display = "none";
+      errorBox.textContent = data.error || "Something went wrong.";
+      errorBox.style.display = "block";
+    } else {
+      stopSheetProgress(true);
+      hideSheetSkeleton();
+      const responseEl = document.getElementById("sheetResponseText");
+      responseEl.style.opacity = "0";
+      setTimeout(() => {
+        responseEl.style.opacity = "1";
+        typewriterEffect(data.response, responseEl);
+        setTimeout(() => document.getElementById("sheetResultCard")
+          .scrollIntoView({ behavior: "smooth", block: "nearest" }), 100);
+      }, 450);
+
+      const done = currentReviewKey && isResponded(currentReviewKey);
+      const markBtn = document.getElementById("sheetMarkBtn");
+      markBtn.classList.toggle("done", done);
+      markBtn.textContent = done ? "✓ Already Responded" : "✓ Mark as Responded";
+
+      addToHistory({
+        businessName, reviewText,
+        stars: selectedStars, tone: sheetSelectedTone,
+        language, response: data.response,
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch(e) {
+    stopSheetProgress(false);
+    document.getElementById("sheetResultCard").style.display = "none";
+    errorBox.textContent = "Network error: " + e.message;
+    errorBox.style.display = "block";
+  }
+
+  btn.disabled = false;
+  btn.classList.remove("loading");
+  btnText.textContent = "✦ Generate Response";
+}
+
+function copySheetText() {
+  navigator.clipboard.writeText(document.getElementById("sheetResponseText").textContent).then(() => {
+    const btn = document.getElementById("sheetCopyBtn");
+    btn.textContent = "✓ Copied!"; btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 2000);
+  });
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && document.getElementById("bottomSheet").classList.contains("open")) closeSheet();
+});
+
+(function() {
+  const sheet = document.getElementById("bottomSheet");
+  const handle = document.getElementById("sheetHandleRow");
+  let startY = 0, currentY = 0, dragging = false;
+  handle.addEventListener("touchstart", e => {
+    startY = e.touches[0].clientY; dragging = true;
+  }, { passive: true });
+  handle.addEventListener("touchmove", e => {
+    if (!dragging) return;
+    currentY = e.touches[0].clientY;
+    const diff = Math.max(0, currentY - startY);
+    sheet.style.transform = `translateY(${diff}px)`;
+  }, { passive: true });
+  handle.addEventListener("touchend", () => {
+    dragging = false;
+    const diff = currentY - startY;
+    sheet.style.transform = "";
+    if (diff > 80) closeSheet();
+    startY = 0; currentY = 0;
+  });
+})();
+</script>
+</body>
+</html>
