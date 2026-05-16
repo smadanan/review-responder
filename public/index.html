@@ -692,6 +692,38 @@ placeholder="e.g. Always mention our loyalty program. Avoid mentioning competito
         <option value="Bengali">Bengali</option>
       </select>
     </div>
+    <!-- Quality Controls -->
+    <div class="quality-section" style="border-top:1px solid rgba(255,255,255,0.06);padding-top:1rem;margin-bottom:1rem;">
+      <div class="quality-toggle" onclick="toggleSheetQuality()" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
+        <span class="quality-label">⚙ Response Quality Controls</span>
+        <span class="quality-arrow" id="sheetQualityArrow">▾</span>
+      </div>
+      <div class="quality-body" id="sheetQualityBody">
+        <div class="quality-row" style="margin-top:1rem;">
+          <div class="slider-wrap">
+            <div class="slider-label-row">
+              <span class="slider-label">Min Words</span>
+              <span class="slider-value" id="sheetMinWordsVal">60</span>
+            </div>
+            <input type="range" id="sheetMinWords" min="40" max="150" value="60"
+              oninput="document.getElementById('sheetMinWordsVal').textContent=this.value" />
+          </div>
+          <div class="slider-wrap">
+            <div class="slider-label-row">
+              <span class="slider-label">Max Words</span>
+              <span class="slider-value" id="sheetMaxWordsVal">120</span>
+            </div>
+            <input type="range" id="sheetMaxWords" min="80" max="250" value="120"
+              oninput="document.getElementById('sheetMaxWordsVal').textContent=this.value" />
+          </div>
+        </div>
+        <div style="margin-bottom:0.5rem;">
+          <label style="display:block;font-family:sans-serif;font-size:0.72rem;color:#64748b;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px;">Custom Instructions</label>
+          <textarea id="sheetCustomInstructions" class="custom-instructions-field" rows="2"
+            placeholder="e.g. Always mention our loyalty program."></textarea>
+        </div>
+      </div>
+    </div>
     <!-- Error -->
     <div class="error" id="sheetError"></div>
     <!-- Generate -->
@@ -1192,6 +1224,13 @@ document.querySelectorAll("[data-stone]").forEach(btn => {
   });
 });
 
+function toggleSheetQuality() {
+  const body = document.getElementById("sheetQualityBody");
+  const arrow = document.getElementById("sheetQualityArrow");
+  const open = body.classList.toggle("open");
+  arrow.classList.toggle("open", open);
+}
+
 function openSheet(review) {
   _sheetCurrentReview = review;
   const n = review.rating || 0;
@@ -1297,9 +1336,9 @@ async function generateInSheet() {
     ? (_sheetCurrentReview.text || "No written review, rating only")
     : "";
   const language = document.getElementById("sheetLanguage").value;
-  const minWords = parseInt(document.getElementById("minWords").value);
-  const maxWords = parseInt(document.getElementById("maxWords").value);
-  const customInstructions = document.getElementById("customInstructions").value.trim();
+  const minWords = parseInt(document.getElementById("sheetMinWords").value);
+  const maxWords = parseInt(document.getElementById("sheetMaxWords").value);
+  const customInstructions = document.getElementById("sheetCustomInstructions").value.trim();
 
   const errorBox = document.getElementById("sheetError");
   const btn = document.getElementById("sheetGenerateBtn");
@@ -1346,7 +1385,7 @@ async function generateInSheet() {
       const done = currentReviewKey && isResponded(currentReviewKey);
       const markBtn = document.getElementById("sheetMarkBtn");
       markBtn.classList.toggle("done", done);
-      markBtn.textContent = done ? "✓ Already Responded" : "✓ Mark as Responded";
+      markBtn.textContent = done ? "Already Responded" : "Mark as Responded";
 
       addToHistory({
         businessName, reviewText,
@@ -1364,13 +1403,13 @@ async function generateInSheet() {
 
   btn.disabled = false;
   btn.classList.remove("loading");
-  btnText.textContent = "✦ Generate Response";
+  btnText.textContent = "Generate Response";
 }
 
 function copySheetText() {
   navigator.clipboard.writeText(document.getElementById("sheetResponseText").textContent).then(() => {
     const btn = document.getElementById("sheetCopyBtn");
-    btn.textContent = "✓ Copied!"; btn.classList.add("copied");
+    btn.textContent = "Copied!"; btn.classList.add("copied");
     setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 2000);
   });
 }
@@ -1390,7 +1429,7 @@ document.addEventListener("keydown", e => {
     if (!dragging) return;
     currentY = e.touches[0].clientY;
     const diff = Math.max(0, currentY - startY);
-    sheet.style.transform = `translateY(${diff}px)`;
+    sheet.style.transform = "translateY(" + diff + "px)";
   }, { passive: true });
   handle.addEventListener("touchend", () => {
     dragging = false;
@@ -1403,3 +1442,4 @@ document.addEventListener("keydown", e => {
 </script>
 </body>
 </html>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
