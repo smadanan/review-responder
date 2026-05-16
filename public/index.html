@@ -363,9 +363,93 @@ input[type="range"]:focus { outline: none; border-color: transparent; }
 .skeleton-line:nth-child(4) { width: 80%; animation-delay: 0.3s; }
 .skeleton-line:last-child { width: 55%; margin-bottom: 0; animation-delay: 0.4s; }
 
+/* ── Bottom Sheet ── */
+@keyframes sheetIn {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.sheet-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
+  z-index: 200; opacity: 0; pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.sheet-overlay.open { opacity: 1; pointer-events: all; }
+
+.bottom-sheet {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  max-width: 640px; margin: 0 auto;
+  background: linear-gradient(180deg, #1a1a3e 0%, #0f172a 100%);
+  border: 1px solid rgba(255,255,255,0.1); border-bottom: none;
+  border-radius: 1.5rem 1.5rem 0 0;
+  z-index: 201; max-height: 90vh;
+  display: flex; flex-direction: column;
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  box-shadow: 0 -20px 60px rgba(0,0,0,0.5);
+}
+.bottom-sheet.open { transform: translateY(0); }
+
+.sheet-handle-row {
+  display: flex; justify-content: center; align-items: center;
+  padding: 0.75rem 1.5rem 0; flex-shrink: 0; cursor: grab; touch-action: none;
+}
+.sheet-handle { width: 40px; height: 4px; border-radius: 999px; background: rgba(255,255,255,0.15); }
+
+.sheet-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.5rem 1.5rem 0.75rem; flex-shrink: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.sheet-title { font-family: sans-serif; font-size: 0.78rem; color: #6366f1; letter-spacing: 0.1em; text-transform: uppercase; }
+.sheet-close {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  color: #64748b; width: 28px; height: 28px; border-radius: 50%;
+  font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.sheet-close:hover { color: #fca5a5; border-color: rgba(239,68,68,0.3); }
+
+.sheet-body {
+  overflow-y: auto; padding: 1.25rem 1.5rem 2.5rem; flex: 1;
+  -webkit-overflow-scrolling: touch;
+}
+.sheet-body::-webkit-scrollbar { width: 3px; }
+.sheet-body::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 4px; }
+
+.sheet-review-preview {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 1rem; padding: 1rem 1.1rem; margin-bottom: 1.25rem;
+}
+.sheet-review-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.sheet-review-author { font-family: sans-serif; font-size: 0.88rem; font-weight: 600; color: #e2e8f0; }
+.sheet-review-stars { color: #F59E0B; font-size: 0.82rem; }
+.sheet-review-biz { font-family: sans-serif; font-size: 0.72rem; color: #6366f1; margin-bottom: 6px; }
+.sheet-review-text { font-size: 0.88rem; color: #94a3b8; line-height: 1.6; }
+.sheet-review-no-text { font-size: 0.82rem; color: #475569; font-style: italic; }
+
+.sheet-section-label { font-family: sans-serif; font-size: 0.72rem; color: #64748b; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
+.sheet-tones { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.25rem; }
+
+.sheet-lang { margin-bottom: 1.25rem; }
+.sheet-lang select {
+  width: 100%; padding: 0.55rem 0.75rem;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 0.6rem; color: #f1f5f9; font-size: 0.88rem; font-family: sans-serif;
+}
+.sheet-lang select:focus { outline: none; border-color: rgba(99,102,241,0.6); }
+.sheet-lang select option { background: #1e1b4b; }
+
+.sheet-result { margin-top: 1.25rem; }
+.sheet-progress { margin-top: 1.25rem; }
+
+/* Update click hint text */
+.click-hint { font-family: sans-serif; font-size: 0.7rem; color: #3b82f6; margin-top: 4px; }
+
 @media (max-width: 480px) {
 .row-2, .quality-row { grid-template-columns: 1fr; }
 .user-bar .user-name { display: none; }
+.bottom-sheet { max-height: 92vh; }
 }
 </style>
 </head>
@@ -565,6 +649,79 @@ placeholder="e.g. Always mention our loyalty program. Avoid mentioning competito
 </div>
 
 <p class="footer">Powered by Claude AI</p>
+
+<!-- ── Bottom Sheet ── -->
+<div class="sheet-overlay" id="sheetOverlay" onclick="closeSheet()"></div>
+<div class="bottom-sheet" id="bottomSheet">
+  <div class="sheet-handle-row" id="sheetHandleRow">
+    <div class="sheet-handle"></div>
+  </div>
+  <div class="sheet-header">
+    <span class="sheet-title">✦ Generate Reply</span>
+    <button class="sheet-close" onclick="closeSheet()">✕</button>
+  </div>
+  <div class="sheet-body" id="sheetBody">
+    <!-- Review Preview -->
+    <div class="sheet-review-preview">
+      <div class="sheet-review-meta">
+        <span class="sheet-review-author" id="sheetAuthor"></span>
+        <span class="sheet-review-stars" id="sheetStars"></span>
+      </div>
+      <div class="sheet-review-biz" id="sheetBiz"></div>
+      <div id="sheetReviewTextWrap"></div>
+    </div>
+    <!-- Tone -->
+    <div class="sheet-section-label">Response Tone</div>
+    <div class="sheet-tones">
+      <button class="tone-btn active" data-stone="Professional">Professional</button>
+      <button class="tone-btn" data-stone="Friendly &amp; Warm">Friendly &amp; Warm</button>
+      <button class="tone-btn" data-stone="Apologetic">Apologetic</button>
+      <button class="tone-btn" data-stone="Confident">Confident</button>
+    </div>
+    <!-- Language -->
+    <div class="sheet-lang">
+      <div class="sheet-section-label">Language</div>
+      <select id="sheetLanguage">
+        <option value="English">English</option>
+        <option value="Hindi">Hindi</option>
+        <option value="Marathi">Marathi</option>
+        <option value="Malayalam">Malayalam</option>
+        <option value="Tamil">Tamil</option>
+        <option value="Telugu">Telugu</option>
+        <option value="Kannada">Kannada</option>
+        <option value="Bengali">Bengali</option>
+      </select>
+    </div>
+    <!-- Error -->
+    <div class="error" id="sheetError"></div>
+    <!-- Generate -->
+    <button class="generate-btn" id="sheetGenerateBtn" onclick="generateInSheet()">
+      <span class="btn-spinner"></span><span id="sheetGenerateBtnText">✦ Generate Response</span>
+    </button>
+    <!-- Progress Steps -->
+    <div class="progress-panel sheet-progress" id="sheetProgressPanel">
+      <div class="progress-label">✦ AI is working</div>
+      <div class="progress-step" id="spStep1"><span class="step-dot"></span><span class="step-check">✓</span> Reading your review...</div>
+      <div class="progress-step" id="spStep2"><span class="step-dot"></span><span class="step-check">✓</span> Analysing tone and sentiment...</div>
+      <div class="progress-step" id="spStep3"><span class="step-dot"></span><span class="step-check">✓</span> Crafting your response...</div>
+      <div class="progress-step" id="spStep4"><span class="step-dot"></span><span class="step-check">✓</span> Polishing the final draft...</div>
+    </div>
+    <!-- Result -->
+    <div class="result-card sheet-result" id="sheetResultCard">
+      <div class="result-header">
+        <span class="result-label" id="sheetResultLabel">✦ Your Response</span>
+        <div class="result-actions">
+          <button class="copy-btn" id="sheetCopyBtn" onclick="copySheetText()">Copy</button>
+        </div>
+      </div>
+      <p id="sheetResponseText"></p>
+      <div class="result-footer">
+        <button class="regen-btn" onclick="generateInSheet()">↻ Regenerate</button>
+        <button class="mark-responded-btn" id="sheetMarkBtn" onclick="markCurrentReviewResponded()">✓ Mark as Responded</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 // ── State ─────────────────────────────────────────────────────────────────
@@ -770,18 +927,15 @@ item.innerHTML = `
 ${review.text
 ? `<div class="review-snippet">${review.text}</div>`
 : `<div class="review-no-text">No written review — rating only</div>`}
-<div class="click-hint">↓ Click to load into form</div>`;
+<div class="click-hint">✦ Tap to generate reply</div>`;
 item.addEventListener("click", () => {
 document.querySelectorAll(".review-item").forEach(el => el.classList.remove("selected"));
 item.classList.add("selected");
 currentReviewKey = key;
 document.getElementById("businessName").value = currentBusinessName;
-document.getElementById("reviewText").value = review.text || "(No written review — rating only)";
+document.getElementById("reviewText").value = review.text || "";
 setStars(n);
-const markBtn = document.getElementById("markRespondedBtn");
-markBtn.classList.toggle("done", done);
-markBtn.textContent = done ? "✓ Already Responded" : "✓ Mark as Responded";
-document.querySelector(".card").scrollIntoView({ behavior: "smooth", block: "start" });
+openSheet(review);
 });
 container.appendChild(item);
 }
@@ -798,9 +952,10 @@ if (authorEl && !authorEl.querySelector(".responded-badge")) {
 authorEl.insertAdjacentHTML("beforeend", '<span class="responded-badge">✓ Responded</span>');
 }
 }
-const markBtn = document.getElementById("markRespondedBtn");
-markBtn.classList.add("done");
-markBtn.textContent = "✓ Already Responded";
+["markRespondedBtn","sheetMarkBtn"].forEach(id => {
+const btn = document.getElementById(id);
+if (btn) { btn.classList.add("done"); btn.textContent = "✓ Already Responded"; }
+});
 if (currentPlaceId) {
 const responded = currentReviews.filter(r => isResponded(reviewKey(r.author, r.time))).length;
 setPlacesStatus(`${currentReviews.length} review${currentReviews.length > 1 ? "s" : ""} — ${responded} responded`);
@@ -840,191 +995,4 @@ list.appendChild(el);
 });
 }
 
-function copyHistoryItem(idx) {
-const item = getHistory()[idx];
-if (!item) return;
-navigator.clipboard.writeText(item.response).then(() => {
-const btns = document.querySelectorAll(".history-copy-btn");
-if (btns[idx]) { btns[idx].textContent = "✓ Copied!"; setTimeout(() => { btns[idx].textContent = "Copy Response"; }, 2000); }
-});
-}
-
-function deleteHistoryItem(idx) {
-const h = getHistory(); h.splice(idx, 1); saveHistory(h);
-updateHistoryCount(); renderHistory();
-}
-
-function clearHistory() {
-if (!confirm("Clear all reply history? This cannot be undone.")) return;
-saveHistory([]);
-updateHistoryCount(); renderHistory();
-}
-
-// ── Loading / Progress Helpers ────────────────────────────────────────────
-let _progressTimers = [];
-
-function startProgressSteps() {
-  const panel = document.getElementById("progressPanel");
-  const steps = ["pStep1","pStep2","pStep3","pStep4"];
-  panel.style.display = "block";
-  steps.forEach(id => {
-    const el = document.getElementById(id);
-    el.classList.remove("visible","done");
-  });
-  panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
-
-  const delays = [120, 900, 1800, 2800];
-  delays.forEach((ms, i) => {
-    const t = setTimeout(() => {
-      // Mark previous step done
-      if (i > 0) document.getElementById(steps[i-1]).classList.replace("visible","done");
-      document.getElementById(steps[i]).classList.add("visible");
-    }, ms);
-    _progressTimers.push(t);
-  });
-}
-
-function stopProgressSteps(success = true) {
-  _progressTimers.forEach(t => clearTimeout(t));
-  _progressTimers = [];
-  if (success) {
-    ["pStep1","pStep2","pStep3","pStep4"].forEach(id => {
-      const el = document.getElementById(id);
-      el.classList.remove("visible");
-      el.classList.add("done");
-    });
-    setTimeout(() => { document.getElementById("progressPanel").style.display = "none"; }, 400);
-  } else {
-    document.getElementById("progressPanel").style.display = "none";
-    ["pStep1","pStep2","pStep3","pStep4"].forEach(id => {
-      document.getElementById(id).classList.remove("visible","done");
-    });
-  }
-}
-
-function showSkeleton() {
-  const card = document.getElementById("resultCard");
-  card.style.display = "block";
-  document.getElementById("responseText").innerHTML =
-    `<div class="skeleton-line"></div>
-     <div class="skeleton-line"></div>
-     <div class="skeleton-line"></div>
-     <div class="skeleton-line"></div>
-     <div class="skeleton-line"></div>`;
-  document.getElementById("copyBtn").style.visibility = "hidden";
-  document.getElementById("markRespondedBtn").style.visibility = "hidden";
-  document.getElementById("resultCard").querySelector(".regen-btn").style.visibility = "hidden";
-  document.getElementById("resultCard").querySelector(".result-label").textContent = "✦ Generating...";
-}
-
-function hideSkeleton() {
-  document.getElementById("copyBtn").style.visibility = "visible";
-  document.getElementById("markRespondedBtn").style.visibility = "visible";
-  document.getElementById("resultCard").querySelector(".regen-btn").style.visibility = "visible";
-  document.getElementById("resultCard").querySelector(".result-label").textContent = "✦ Your Response";
-}
-
-function typewriterEffect(text, element, speed = 14) {
-  element.textContent = "";
-  element.style.opacity = "1";
-  let i = 0;
-  const tick = () => {
-    if (i < text.length) {
-      element.textContent += text[i++];
-      setTimeout(tick, speed);
-    }
-  };
-  tick();
-}
-
-// ── Generate ──────────────────────────────────────────────────────────────
-async function generate() {
-const businessName = document.getElementById("businessName").value.trim();
-const businessType = document.getElementById("businessType").value;
-const review = document.getElementById("reviewText").value.trim();
-const language = document.getElementById("language").value;
-const minWords = parseInt(document.getElementById("minWords").value);
-const maxWords = parseInt(document.getElementById("maxWords").value);
-const customInstructions = document.getElementById("customInstructions").value.trim();
-const errorBox = document.getElementById("errorBox");
-const btn = document.getElementById("generateBtn");
-const btnText = document.getElementById("generateBtnText");
-
-errorBox.style.display = "none";
-if (!businessName) { showError("Please enter your business name."); return; }
-if (!review) { showError("Please paste a customer review."); return; }
-if (minWords >= maxWords) { showError("Min words must be less than max words."); return; }
-
-btn.disabled = true;
-btn.classList.add("loading");
-btnText.textContent = "Crafting your response...";
-
-startProgressSteps();
-showSkeleton();
-
-try {
-const res = await fetch("/generate", {
-method: "POST",
-headers: { "Content-Type": "application/json" },
-body: JSON.stringify({ businessName, businessType, review, tone: selectedTone, stars: selectedStars, language, minWords, maxWords, customInstructions })
-});
-if (res.status === 401) { window.location.href = "/"; return; }
-const data = await res.json();
-if (!res.ok) {
-  stopProgressSteps(false);
-  document.getElementById("resultCard").style.display = "none";
-  showError(data.error || "Something went wrong.");
-} else {
-  stopProgressSteps(true);
-  hideSkeleton();
-
-  // Typewriter effect
-  const responseEl = document.getElementById("responseText");
-  responseEl.style.opacity = "0";
-  setTimeout(() => {
-    responseEl.style.opacity = "1";
-    typewriterEffect(data.response, responseEl);
-  }, 450);
-
-  document.getElementById("resultCard").scrollIntoView({ behavior: "smooth", block: "nearest" });
-
-  const markBtn = document.getElementById("markRespondedBtn");
-  const alreadyResponded = currentReviewKey && isResponded(currentReviewKey);
-  markBtn.classList.toggle("done", alreadyResponded);
-  markBtn.textContent = alreadyResponded ? "✓ Already Responded" : "✓ Mark as Responded";
-
-  addToHistory({
-    businessName, reviewText: review,
-    stars: selectedStars, tone: selectedTone,
-    language, response: data.response,
-    timestamp: new Date().toISOString()
-  });
-}
-} catch(e) {
-  stopProgressSteps(false);
-  document.getElementById("resultCard").style.display = "none";
-  showError("Network error: " + e.message);
-}
-
-btn.disabled = false;
-btn.classList.remove("loading");
-btnText.textContent = "✦ Generate Response";
-}
-
-function showError(msg) {
-const box = document.getElementById("errorBox");
-box.textContent = msg; box.style.display = "block";
-}
-
-function copyText() {
-navigator.clipboard.writeText(document.getElementById("responseText").textContent).then(() => {
-const btn = document.getElementById("copyBtn");
-btn.textContent = "✓ Copied!"; btn.classList.add("copied");
-setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 2000);
-});
-}
-
-function logout() { window.location.href = "/auth/logout"; }
-</script>
-</body>
-</html>
+function copyHistoryIte
